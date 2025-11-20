@@ -1,48 +1,97 @@
 """
-Database Schemas
+Database Schemas for HEMO LINK
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
-
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+Each Pydantic model corresponds to a MongoDB collection (lowercased class name).
+Use these for validation and to keep a consistent structure.
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional, List, Dict
+from datetime import date, datetime
 
-# Example schemas (replace with your own):
-
+# Core Users and Auth
 class User(BaseModel):
-    """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
-    """
-    name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+    email: EmailStr = Field(..., description="Login email (unique)")
+    password_hash: str = Field(..., description="BCrypt hashed password")
+    role: str = Field(..., description="One of: admin, hospital, bloodbank, donor")
+    name: Optional[str] = Field(None, description="Display name")
+    hospital_id: Optional[str] = Field(None, description="Linked hospital _id for hospital/bloodbank staff")
+    phone: Optional[str] = None
+    theme: Optional[str] = Field("light", description="light | dark")
+    is_active: bool = Field(True)
 
-class Product(BaseModel):
-    """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
-    """
-    title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+class Hospital(BaseModel):
+    name: str
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    contact_numbers: List[str] = Field(default_factory=list)
+    blood_bank_details: Optional[str] = None
+    admin_user_id: Optional[str] = Field(None, description="_id of the hospital admin user")
 
-# Add your own schemas here:
-# --------------------------------------------------
+# Donors and Donations
+class Donor(BaseModel):
+    hospital_id: str = Field(..., description="Owning hospital _id")
+    name: str
+    blood_group: str = Field(..., pattern="^(A|B|AB|O)[+-]$")
+    phone: str
+    location: Optional[str] = None
+    last_donation_date: Optional[date] = None
+    donation_count: int = 0
+    is_eligible: bool = True
+    notes: Optional[str] = None
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+class DonationHistory(BaseModel):
+    hospital_id: str
+    donor_id: str
+    date: date
+    units: float = Field(ge=0.1)
+    notes: Optional[str] = None
+
+# Inventory (per hospital)
+class Inventory(BaseModel):
+    hospital_id: str
+    units: Dict[str, int] = Field(
+        default_factory=lambda: {
+            "A+": 0, "A-": 0, "B+": 0, "B-": 0, "AB+": 0, "AB-": 0, "O+": 0, "O-": 0
+        }
+    )
+    low_threshold: int = 5
+    critical_threshold: int = 2
+
+# Requests and Notifications
+class BloodRequest(BaseModel):
+    hospital_id: str
+    blood_group: str = Field(..., pattern="^(A|B|AB|O)[+-]$")
+    quantity: int = Field(..., ge=1)
+    urgency: str = Field(..., description="low|medium|high|critical")
+    patient_name: Optional[str] = None
+    patient_details: Optional[str] = None
+    status: str = Field("pending", description="pending|alert_sent|fulfilled|rejected")
+    matched_donor_ids: List[str] = Field(default_factory=list)
+
+class Notification(BaseModel):
+    donor_id: str
+    request_id: str
+    hospital_id: str
+    message: str
+    channel: str = Field("in-app")
+    status: str = Field("sent")
+
+# Certificates
+class Certificate(BaseModel):
+    donor_id: str
+    hospital_id: str
+    donor_name: str
+    hospital_name: str
+    donation_date: date
+    donation_count: int
+    badge: str
+    ai_message: str
+
+"""
+Note: The app will use these schemas for validation alongside helper functions
+from database.py (create_document, get_documents). Collections will be named as
+lowercase class names (e.g., User -> "user").
+"""
