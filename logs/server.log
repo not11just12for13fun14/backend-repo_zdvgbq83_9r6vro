@@ -5,3 +5,4 @@ INFO:     Started server process [608]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     172.20.0.1:51448 - "HEAD / HTTP/1.1" 405 Method Not Allowed
+INFO:     172.20.0.1:35620 - "POST /auth/login HTTP/1.1" 422 Unprocessable Content
