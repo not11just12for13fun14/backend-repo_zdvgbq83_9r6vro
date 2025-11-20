@@ -16,12 +16,12 @@ from schemas import User as UserSchema, Hospital as HospitalSchema, Donor as Don
 # ------------------------------------
 # App and Security Setup
 # ------------------------------------
-app = FastAPI(title="HEMO LINK API", version="1.0.1")
+app = FastAPI(title="HEMO LINK API", version="1.0.3")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -30,7 +30,8 @@ SECRET_KEY = os.getenv("JWT_SECRET", "dev-secret-key-change")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 12
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Switch to PBKDF2 to avoid bcrypt backend issues & 72-byte limits
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 # ------------------------------------
